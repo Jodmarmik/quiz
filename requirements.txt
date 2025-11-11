@@ -1,0 +1,6 @@
+telebot
+python-telegram-bot
+pymongo
+python-docx
+pymupdf 
+Pillow 
