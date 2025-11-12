@@ -17,7 +17,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("authorize", authorize))
     application.add_handler(CommandHandler("myplan", myplan))
-
+    application.add_handler(CallbackQueryHandler(help_menu, pattern="^help_menu$"))
     logging.info("🚀 Bot started successfully!")
     application.run_polling()
 
