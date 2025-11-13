@@ -4,7 +4,6 @@ import tempfile
 from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
 
-
 # ✅ /start command
 async def start_csv_poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -14,6 +13,7 @@ async def start_csv_poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+
 async def handle_csv(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file = await update.message.document.get_file()
     csv_file = tempfile.mktemp(suffix=".csv")
@@ -21,32 +21,44 @@ async def handle_csv(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await file.download_to_drive(csv_file)
 
-    with open(csv_file, "r", encoding="utf-8-sig") as f, open(txt_file, "w", encoding="utf-8") as out:
-        reader = csv.DictReader(f)
+    # 🔹 Read CSV safely
+    with open(csv_file, "r", encoding="utf-8-sig") as f:
+        sample = f.read(2048)
+        f.seek(0)
+        # Auto detect delimiter
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;|\t")
+        reader = csv.DictReader(f, dialect=dialect)
 
-        for idx, row in enumerate(reader, start=1):
-            # Convert all keys to lowercase for flexible matching
-            row_lower = {k.strip().lower(): v for k, v in row.items()}
+        # Normalize headers
+        headers = [h.strip().lower() for h in reader.fieldnames or []]
+        print("Detected headers:", headers)  # Debug line (optional)
 
-            q = row_lower.get("question", "")
-            a = row_lower.get("option a", "")
-            b = row_lower.get("option b", "")
-            c = row_lower.get("option c", "")
-            d = row_lower.get("option d", "")
-            ans = row_lower.get("answer", "")
-            desc = row_lower.get("description", "")
+        with open(txt_file, "w", encoding="utf-8") as out:
+            for idx, row in enumerate(reader, start=1):
+                # Clean keys
+                row_lower = {k.strip().lower(): v.strip() for k, v in row.items() if k}
 
-            out.write(f"{idx}. {q}\n")
-            out.write(f"A. {a}\n")
-            out.write(f"B. {b}\n")
-            out.write(f"C. {c}\n")
-            out.write(f"D. {d}\n")
-            out.write(f"{ans}\n")
-            out.write(f"{desc}\n\n")
+                q = row_lower.get("question", "")
+                a = row_lower.get("option a", "")
+                b = row_lower.get("option b", "")
+                c = row_lower.get("option c", "")
+                d = row_lower.get("option d", "")
+                ans = row_lower.get("answer", "")
+                desc = row_lower.get("description", "")
+
+                out.write(f"{idx}. {q}\n")
+                out.write(f"A. {a}\n")
+                out.write(f"B. {b}\n")
+                out.write(f"C. {c}\n")
+                out.write(f"D. {d}\n")
+                out.write(f"{ans}\n")
+                out.write(f"{desc if desc else '@SecondCoaching'}\n\n")
 
     await update.message.reply_document(open(txt_file, "rb"))
+
     os.remove(csv_file)
     os.remove(txt_file)
+
 
 
 
