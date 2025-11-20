@@ -6,12 +6,12 @@ from telegram.ext import (
     ContextTypes, CommandHandler, MessageHandler,
     filters, ConversationHandler
 )
-
 import requests
 
 logging.basicConfig(level=logging.INFO)
 
-COLLECT_MCQS = range(1)   # Only 1 state now (no ASK_CUSTOM)
+COLLECT_MCQS = range(1)
+
 
 def clean_csv_text(text: str) -> str:
     text = text.replace("```csv", "").replace("```", "").strip()
@@ -19,7 +19,8 @@ def clean_csv_text(text: str) -> str:
         text = text[:-1].strip()
     return text
 
-def convert_to_csv_via_ai_sync(text: str, extra_instruction: str = "") -> str:
+
+def convert_to_csv_via_ai_sync(text: str) -> str:
     prompt = f"""
 Convert the following MCQs into proper CSV format with headers:
 "Question","Option A","Option B","Option C","Option D","Answer","Description"
@@ -37,7 +38,7 @@ MCQs:
         url = "https://api.deepinfra.com/v1/openai/chat/completions"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": "Bearer xkFIN7Nxr9hueQUIKZCH3tW9PLQxZsHC"
+            "Authorization": "Bearer xkFIN7Nxr9hueQUIKZCH3tW9PLQxZsHC",
         }
 
         payload = {
@@ -55,7 +56,8 @@ MCQs:
     except Exception as e:
         return f"Error: {e}"
 
-async def convert_to_csv_via_ai(text: str) -> str:
+
+async def convert_to_csv_via_ai(text: str):
     return await asyncio.to_thread(convert_to_csv_via_ai_sync, text)
 
 
@@ -66,12 +68,18 @@ async def mcq_csv_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def convert_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["mcq_mode"] = True
     context.user_data["mcqs"] = []
-    await update.message.reply_text("✏️ Send MCQs (max 4 messages). Send /done when finished.")
+
+    await update.message.reply_text("✏️ Send MCQs (max 4). Send /done when finished.")
     return COLLECT_MCQS
 
 
 async def handle_mcq_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if not context.user_data.get("mcq_mode"):
+        return  # ignore if plugin not active
+
     mcqs = context.user_data.get("mcqs", [])
 
     if len(mcqs) >= 4:
@@ -86,6 +94,7 @@ async def handle_mcq_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def process_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["mcq_mode"] = False
     mcqs = context.user_data.get("mcqs", [])
 
     if not mcqs:
@@ -95,13 +104,11 @@ async def process_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🤖 Converting...")
 
     csv_text = await convert_to_csv_via_ai("\n\n".join(mcqs))
-
     header = "Question,Option A,Option B,Option C,Option D,Answer,Description"
-    lines = csv_text.strip().splitlines()
 
+    lines = csv_text.strip().splitlines()
     if lines and "Question" in lines[0]:
         lines = lines[1:]
-
     lines.insert(0, header)
 
     file = StringIO("\n".join(lines))
@@ -114,6 +121,7 @@ async def process_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["mcq_mode"] = False
     context.user_data.clear()
     await update.message.reply_text("Cancelled.")
     return ConversationHandler.END
