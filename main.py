@@ -1,11 +1,5 @@
 import logging
-from telegram.ext import (
-
-    Application, CommandHandler, ConversationHandler,
-
-    CallbackQueryHandler, MessageHandler, filters
-
-)
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
 from handlers.start_handler import start, help_menu
 from handlers.authorization_handler import authorize
@@ -19,12 +13,15 @@ from config import TOKEN
 def main():
     application = Application.builder().token(TOKEN).build()
 
-    # ✅ Only required handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("authorize", authorize))
     application.add_handler(CommandHandler("myplan", myplan))
     application.add_handler(CallbackQueryHandler(help_menu, pattern="^help_menu$"))
+
+    # CSV → TXT + Poll system
     setup_csv_poll_handlers(application)
+
+    # MCQ → CSV system
     add_mcq_csv_handlers(application)
 
     logging.info("🚀 Bot started successfully!")
