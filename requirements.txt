@@ -4,3 +4,5 @@ pymongo
 python-docx
 pymupdf 
 Pillow 
+PyPDF2 
+g4f
