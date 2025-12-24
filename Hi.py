@@ -1,81 +1,66 @@
 import os
 import logging
-import numpy as np
+import fitz  # pymupdf
 import easyocr
-import cv2
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
-from pdf2image import convert_from_path
-from PIL import Image
 
-# ================= CONFIG =================
+# ============ CONFIG ============
 TOKEN = os.getenv("TOKEN", "")
 
-DPI = 500
-# ==========================================
+DPI = 300
+# ================================
 
 logging.basicConfig(level=logging.ERROR)
 
 reader = easyocr.Reader(['hi'], gpu=False, verbose=False)
 
-def preprocess_image(pil_image):
-    """
-    Image cleaning for better Hindi OCR
-    """
-    img = np.array(pil_image)
-
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-
-    gray = cv2.resize(gray, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
-
-    _, thresh = cv2.threshold(
-        gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
-    )
-
-    return thresh
-
-
 async def pdf_to_hindi_txt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        document = update.message.document
+        doc = update.message.document
 
-        if not document.file_name.lower().endswith(".pdf"):
+        if not doc.file_name.lower().endswith(".pdf"):
             await update.message.reply_text("❌ Sirf PDF bheje")
             return
 
         chat_id = update.message.chat_id
-        pdf_path = f"input_{chat_id}.pdf"
-        txt_path = f"output_{chat_id}.txt"
+        pdf_path = f"{chat_id}.pdf"
+        txt_path = f"{chat_id}.txt"
 
-        tg_file = await document.get_file()
+        tg_file = await doc.get_file()
         await tg_file.download_to_drive(pdf_path)
 
-        await update.message.reply_text("📄 PDF → Image → OCR start ho gaya...")
+        await update.message.reply_text("⚡ OCR start...")
 
-        images = convert_from_path(pdf_path, dpi=DPI)
-
+        pdf = fitz.open(pdf_path)
         full_text = ""
 
-        for page_no, pil_img in enumerate(images, start=1):
-            processed_img = preprocess_image(pil_img)
+        for page_no, page in enumerate(pdf, start=1):
+            pix = page.get_pixmap(dpi=DPI)
+            img_path = f"{chat_id}_{page_no}.png"
+            pix.save(img_path)
 
-            results = reader.readtext(processed_img, detail=0)
+            results = reader.readtext(img_path, detail=0)
 
-            full_text += f"\n========== Page {page_no} ==========\n"
-            for text in results:
-                full_text += text + "\n"
+            full_text += f"\n===== Page {page_no} =====\n"
+            for line in results:
+                full_text += line + "\n"
+
+            os.remove(img_path)
+
+        pdf.close()
 
         with open(txt_path, "w", encoding="utf-8") as f:
             f.write(full_text)
 
         await update.message.reply_document(
             document=open(txt_path, "rb"),
-            caption="✅ Hindi TXT ready (clean OCR)"
+            caption="✅ Hindi TXT ready (FAST OCR)"
         )
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Error: {str(e)}")
+        await update.message.reply_text(f"❌ Error: {e}")
 
     finally:
         if os.path.exists(pdf_path):
@@ -83,11 +68,9 @@ async def pdf_to_hindi_txt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if os.path.exists(txt_path):
             os.remove(txt_path)
 
-
+# ============ MAIN ============
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(MessageHandler(filters.Document.PDF, pdf_to_hindi_txt))
-
-    print("🤖 Bot Running...")
+    print("🤖 Fast OCR Bot Running...")
     app.run_polling()
