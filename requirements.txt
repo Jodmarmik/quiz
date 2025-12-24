@@ -9,3 +9,4 @@ g4f
 easyocr
 pdf2image
 numpy
+opencv-python
