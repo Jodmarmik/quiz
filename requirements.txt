@@ -7,6 +7,4 @@ Pillow
 PyPDF2 
 g4f
 easyocr
-pdf2image
-numpy
-opencv-python
+pymupdf
