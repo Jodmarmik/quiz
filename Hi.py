@@ -9,7 +9,8 @@ from telegram.ext import (
 from pdf2image import convert_from_path
 import easyocr
 
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = os.getenv("TOKEN", "")
+
 
 reader = easyocr.Reader(['hi'], gpu=False)
 
@@ -49,7 +50,7 @@ async def pdf_to_hindi_txt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.remove(txt_path)
 
 if __name__ == "__main__":
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(MessageHandler(filters.Document.PDF, pdf_to_hindi_txt))
 
