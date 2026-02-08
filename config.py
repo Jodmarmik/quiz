@@ -7,6 +7,6 @@ MONGO_URI = os.getenv("MONGO_URI", "")
 TOKEN = os.getenv("TOKEN", "")
 
 # Admin ID (int me convert zaroori)
-ADMIN_ID = int(os.getenv("ADMIN_ID", "5018200809"))
+ADMIN_ID = int(os.getenv("ADMIN_ID", "8249875504"))
 
 
